@@ -1,0 +1,28 @@
+# name: Schedule R Script
+# 
+# on:
+#   schedule:
+#     - cron: '*/10 * * * *'
+# jobs:
+#   refresh-the-dashboard:
+#     runs-on: ubuntu-22.04
+#     container:
+#       image: lokwudishu/shelter-occupancy-project
+#     steps:
+#       - name: checkout_repo
+#         uses: actions/checkout@v3
+#         with:
+#           ref: "main"
+#       - name: Data Refresh
+#         run: Rscript dev/required_packages.R && Rscript dev/extract_shelter_data.R
+#     
+#       - name: Commit and push changes
+#         if: success()
+#         run: |
+#           git config --global user.name "${{ secrets.USER_NAME }}"
+#           git config --global user.email "${{ secrets.USER_EMAIL }}"
+#           git add data .
+#           git commit -m "Automated data extraction update"
+#           git push
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

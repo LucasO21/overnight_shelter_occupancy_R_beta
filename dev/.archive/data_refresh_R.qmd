@@ -1,0 +1,123 @@
+---
+title: "Extract Raw Shelter Data (Dev)"
+format: html
+editor: visual
+---
+
+## Quarto
+
+
+
+```{r}
+# * Set Working Dir ----
+setwd(here::here("dev", "R"))
+
+# * Libraries ----
+library(tidyverse)
+library(opendatatoronto)
+library(janitor)
+```
+
+You can add options to executable code like this
+
+```{r}
+get_shelter_data <- function(year = 2024) {
+    
+    # Big Query Connection
+    #con <- get_bigquery_connection(dataset = "data_raw")
+    
+    # Get Last Date in Big Query 
+    # max_date <- DBI::dbGetQuery(
+    #     con,
+    #     "select max(occupancy_date) from `toronto-shelter-project.data_raw.raw_shelter_2023`"
+    # )
+    
+    #max_date <- max_date %>% pull() %>% as.Date()
+    
+    # Oped Data API Info
+    info <- opendatatoronto::show_package("21c83b32-d5a8-4106-a54f-010dbe49f6f2") %>% 
+        list_package_resources() %>% 
+        filter(str_to_lower(format) %in% c("csv", "geojson")) %>% 
+        filter(! is.na(last_modified)) %>% 
+        arrange(desc(last_modified)) %>% 
+        mutate(last_modified_year = lubridate::year(last_modified))
+    
+    info_2 <- info %>% 
+        filter(last_modified_year == year) %>% 
+        arrange(desc(last_modified)) %>% 
+        head(1)
+    
+    # Info Check
+    if (is.null(info) || length(info) == 0) {
+        stop("No API info extracted! Check API info code chunk", call. = FALSE)
+        msg = "No API info extracted!"
+    }
+    
+    # Data Extract (Open Data API)
+    data <- info_2 %>% 
+        get_resource() %>% 
+        janitor::clean_names() %>% 
+        mutate(occupancy_date = lubridate::ymd(occupancy_date)) %>% 
+        head(5)
+    
+    # Data Check
+    if (is.null(data) || length(data) == 0) {
+        stop("No data extracted! Check data chunk", call. = FALSE)
+        msg = "No data extracted!"
+    }
+    
+    # metadata
+    metadata_tbl <- info_2 %>% 
+        mutate(extraction_time = Sys.time())
+    
+    # Check: New Data
+    # if (max(data$occupancy_date) == max_date) {
+    #     stop("Max occupancy date from API matches max data in BigQuery", call. = FALSE)
+    # }
+    
+    # Filter API Data > Max Occupancy Date in BQ
+    # ret <- data %>% 
+    #     filter(occupancy_date > max_date) %>% 
+    #     mutate(extract_date = Sys.time())
+    
+    # Metadata
+    # mtd <- str_glue(
+    #     "Metadata (Open Data Toronto API):
+    #         Last Extract Date: {Sys.time()}
+    #         Date Range for New Data Extact: {min(output$occupancy_date)} - {max(output$occupancy_date)}
+    #         Max Date in Big Query: {max_date}
+    #         New Data Rows: {nrow(output)}
+    #         New Data Cols: {ncol(output)}
+    #     "
+    # )
+    
+    # Message
+    #message(str_glue("Raw shelter data extract - Complete!"))
+    
+    ret <- data %>% mutate(time = Sys.time())
+    
+    # Return
+    return(ret)
+    
+}
+```
+
+
+
+```{r}
+shelter_raw_tbl <- get_shelter_data()
+
+save_path <- str_glue("../../data/shelter_raw_tbl_{Sys.time()}.csv")
+
+
+shelter_raw_tbl %>% write_csv(save_path)
+
+
+
+```
+
+
+```{r}
+shelter_raw_tbl
+
+```
